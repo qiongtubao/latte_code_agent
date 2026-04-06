@@ -10,6 +10,8 @@ export const initCommand = new Command('init')
   .description('Initialize the project and create feature list')
   .option('-n, --name <name>', 'Project name')
   .option('-f, --force', 'Force reinitialize', false)
+  .option('-m, --model <model>', 'Model to use for parsing LATTE.md (claude, trae)', 'simple')
+  .option('--model-name <name>', 'Specific model name (e.g. claude-sonnet-4-20250514)')
   .action(async (options) => {
     try {
       const projectRoot = getProjectRoot();
@@ -42,21 +44,34 @@ export const initCommand = new Command('init')
       }
 
       const latteMdPath = path.join(projectRoot, 'LATTE.md');
-      if (await fileExists(latteMdPath)) {
+      const hasLatteMd = await fileExists(latteMdPath);
+
+      if (hasLatteMd) {
         logger.info('Parsing LATTE.md file...');
-        const featureManager = new FeatureManager(projectRoot);
-        const featureList = await featureManager.createFeatureList(projectName);
-
-        logger.success(`Created feature list with ${featureList.features.length} features`);
-
-        const highPriority = featureList.features.filter((f) => f.priority === 'high');
-        if (highPriority.length > 0) {
-          logger.section('High Priority Features');
-          logger.list(highPriority.map((f) => `${f.id}: ${f.description}`));
-        }
       } else {
-        logger.warn('LATTE.md file not found. Creating empty feature list...');
-        await stateManager.createInitialFeatureList(projectName);
+        logger.info('LATTE.md not found. Analyzing project structure...');
+      }
+
+      const featureManager = new FeatureManager(projectRoot);
+
+      let featureList;
+      if (options.model === 'claude') {
+        featureList = await featureManager.createFeatureListWithAI(
+          projectName,
+          options.model,
+          options.modelName,
+          hasLatteMd ? await fs.readFile(latteMdPath, 'utf-8') : undefined,
+        );
+      } else {
+        featureList = await featureManager.createFeatureList(projectName);
+      }
+
+      logger.success(`Created feature list with ${featureList.features.length} features`);
+
+      const highPriority = featureList.features.filter((f) => f.priority === 'high');
+      if (highPriority.length > 0) {
+        logger.section('High Priority Features');
+        logger.list(highPriority.map((f) => `${f.id}: ${f.description}`));
       }
 
       const initScriptPath = path.join(projectRoot, 'init.sh');

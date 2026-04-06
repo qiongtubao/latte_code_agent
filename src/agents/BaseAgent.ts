@@ -22,6 +22,8 @@ export interface AgentContext {
   feature?: Feature;
   progress?: Progress;
   previousResults?: AgentResult[];
+  gitCommits?: string[];
+  latteMdContent?: string;
 }
 
 export interface AgentResult {

@@ -1,7 +1,4 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { spawn } from 'child_process';
 
 export interface CommandResult {
   stdout: string;
@@ -20,26 +17,46 @@ export class RunCommand {
     args: string[] = [],
     options: CommandOptions = {}
   ): Promise<CommandResult> {
-    const fullCommand = `${command} ${args.join(' ')}`;
     const timeout = options.timeout || 300000;
 
-    try {
-      const result = await execAsync(fullCommand, {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, {
         cwd: options.cwd || process.cwd(),
         env: { ...process.env, ...options.env },
-        timeout,
-        maxBuffer: 1024 * 1024 * 10,
+        shell: false,
       });
 
-      return {
-        stdout: result.stdout,
-        stderr: result.stderr,
-      };
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Command failed: ${fullCommand}\n${error.message}`);
-      }
-      throw error;
-    }
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error(`Command timeout after ${timeout}ms`));
+      }, timeout);
+
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          const fullCommand = `${command} ${args.join(' ')}`;
+          reject(new Error(`Command failed with code ${code}: ${fullCommand}\n${stderr}`));
+        }
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        const fullCommand = `${command} ${args.join(' ')}`;
+        reject(new Error(`Command failed: ${fullCommand}\n${error.message}`));
+      });
+    });
   }
 }

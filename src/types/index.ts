@@ -9,6 +9,7 @@ export interface Feature {
   completed_at?: string;
   test_cases: TestCase[];
   dependencies?: string[];
+  blocked_reason?: string;
 }
 
 export interface TestCase {
@@ -78,6 +79,7 @@ export type AgentType = 'initializer' | 'coding';
 export interface AgentConfig {
   type: AgentType;
   model: 'latte' | 'claude' | 'trae';
+  modelName?: string;
   max_retries: number;
   timeout: number;
 }

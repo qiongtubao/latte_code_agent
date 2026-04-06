@@ -39,9 +39,10 @@ export class StateManager {
   }
 
   async saveFeatureList(featureList: FeatureList): Promise<void> {
-    const path = getFeatureListPath(this.projectRoot);
+    await ensureLatteDir(this.projectRoot);
+    const filePath = getFeatureListPath(this.projectRoot);
     featureList.updated_at = formatDate();
-    await writeJSON(path, featureList);
+    await writeJSON(filePath, featureList);
   }
 
   async loadProgress(): Promise<Progress | null> {
@@ -54,9 +55,10 @@ export class StateManager {
   }
 
   async saveProgress(progress: Progress): Promise<void> {
-    const path = getProgressPath(this.projectRoot);
+    await ensureLatteDir(this.projectRoot);
+    const filePath = getProgressPath(this.projectRoot);
     const content = this.generateProgressMarkdown(progress);
-    await writeText(path, content);
+    await writeText(filePath, content);
   }
 
   async loadState(): Promise<AgentState | null> {
@@ -68,8 +70,9 @@ export class StateManager {
   }
 
   async saveState(state: AgentState): Promise<void> {
-    const path = getStatePath(this.projectRoot);
-    await writeJSON(path, state);
+    await ensureLatteDir(this.projectRoot);
+    const filePath = getStatePath(this.projectRoot);
+    await writeJSON(filePath, state);
   }
 
   async createInitialFeatureList(projectName: string): Promise<FeatureList> {
@@ -112,7 +115,7 @@ export class StateManager {
     if (!featureList) return null;
 
     const pendingFeatures = featureList.features.filter(
-      (f) => f.status === 'pending'
+      (f) => f.status === 'pending' || f.status === 'in_progress' || f.status === 'blocked'
     );
 
     if (pendingFeatures.length === 0) return null;
